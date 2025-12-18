@@ -1,0 +1,91 @@
+> Vad säger Claude om jag ska refractor koden i mappen "C:\Users\MarcusHäger\Selatek_Notes", hur är det 
+optimala sätet att bygga upp den kod från början? 
+
+● Låt mig först utforska vad som finns i projektet:
+
+● Explore(Utforska Selatek_Notes-projektet)
+  ⎿  Done (14 tool uses · 40.1k tokens · 1m 58s)
+
+● Selatek Notes - Projektanalys
+
+  Vad projektet gör
+
+  Ett röst-till-anteckningar-system för iPhone:
+  - Diktera text via röst
+  - Samla ihop text över tid
+  - Exportera till Word-dokument
+  - Fungera offline (PWA)
+
+  Nuvarande struktur
+
+  Selatek_Notes/
+  └── experiments/
+      └── voice-to-modal/
+          ├── exp-001/    ← Proof of concept (KLAR)
+          ├── exp-002/    ← Session + Word-export (DELVIS)
+          └── exp-003/    ← PWA med offline (PÅGÅENDE)
+
+  Teknikstack
+
+  | Del       | Teknologi                        |
+  |-----------|----------------------------------|
+  | Backend   | Modal.com (serverless) + FastAPI |
+  | Frontend  | PWA (HTML5 + JavaScript)         |
+  | Diktering | Web Speech API                   |
+  | Export    | python-docx                      |
+  | Offline   | Service Worker + localStorage    |
+
+  ---
+  Optimalt sätt att bygga om från grunden
+
+  Rekommenderad struktur
+
+  selatek-notes/
+  ├── CLAUDE.md                    ← Projekthjärna för Claude
+  ├── .claude/
+  │   └── commands/
+  │       ├── deploy.md            ← /deploy kommando
+  │       └── test.md              ← /test kommando
+  ├── backend/
+  │   ├── app.py                   ← Huvudapp (Modal + FastAPI)
+  │   ├── models.py                ← Pydantic-modeller
+  │   ├── services/
+  │   │   ├── session.py           ← Session-hantering
+  │   │   └── export.py            ← Word-export
+  │   └── tests/
+  │       └── test_api.py
+  ├── frontend/
+  │   ├── index.html
+  │   ├── css/
+  │   │   └── styles.css           ← Separerad CSS
+  │   ├── js/
+  │   │   ├── app.js               ← Huvudlogik
+  │   │   ├── speech.js            ← Diktering
+  │   │   └── sync.js              ← Online/offline-synk
+  │   ├── sw.js                    ← Service Worker
+  │   └── manifest.json
+  ├── config/
+  │   └── settings.py              ← API-URLs, konfiguration
+  └── README.md
+
+  Nyckelförbättringar
+
+  | Problem idag               | Lösning                 |
+  |----------------------------|-------------------------|
+  | Allt i en fil (index.html) | Separera HTML/CSS/JS    |
+  | Hårdkodade API-URLs        | Config-fil              |
+  | Ingen felhantering         | Retry-logik med backoff |
+  | Ingen testning             | Unit tests + E2E        |
+  | 3 separata experiment      | En sammanslagen kodbas  |
+
+  Prioriterad ordning
+
+  1. Slå ihop exp-002 + exp-003 till en kodbas
+  2. Separera frontend-kod (CSS/JS ut från HTML)
+  3. Lägg till config för API-endpoints
+  4. Implementera retry-logik vid nätverksfel
+  5. Testa PWA end-to-end på iPhone
+  6. Skapa CLAUDE.md för framtida utveckling
+
+  ---
+  Vill du att jag hjälper dig refaktorera projektet enligt denna struktur?

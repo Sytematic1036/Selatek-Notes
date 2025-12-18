@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Selatek Notes">
+    <title>Selatek Notes</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+            padding-top: env(safe-area-inset-top, 20px);
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        .status.online { color: #4ade80; }
+        .status.offline { color: #f87171; }
+
+        .text-area {
+            width: 100%;
+            min-height: 300px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 15px;
+            color: #fff;
+            font-size: 16px;
+            line-height: 1.6;
+            resize: none;
+            margin-bottom: 20px;
+        }
+
+        .text-area:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        .text-area::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-dictate {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: #fff;
+        }
+
+        .btn-dictate.recording {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+            color: #fff;
+        }
+
+        .btn-clear {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-sync {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+            color: #fff;
+        }
+
+        .word-count {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Selatek Notes</h1>
+        <div class="status" id="status">Kontrollerar anslutning...</div>
+
+        <textarea
+            class="text-area"
+            id="textArea"
+            placeholder="Tryck på mikrofonen för att diktera, eller skriv direkt här..."
+        ></textarea>
+
+        <div class="buttons">
+            <button class="btn-dictate" id="dictateBtn">
+                🎤 Diktera
+            </button>
+            <button class="btn-save" id="saveBtn">
+                💾 Spara till Word
+            </button>
+            <button class="btn-sync" id="syncBtn">
+                ☁️ Synka till server
+            </button>
+            <button class="btn-clear" id="clearBtn">
+                🗑️ Rensa
+            </button>
+        </div>
+
+        <div class="word-count" id="wordCount">0 tecken</div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // === KONFIGURATION ===
+        const API_URL = 'https://mackanh1972--voice-accumulator-accumulate.modal.run';
+        const WORD_API_URL = 'https://mackanh1972--voice-accumulator-save-to-word.modal.run';
+        const STORAGE_KEY = 'selatek-notes-text';
+        const SESSION_KEY = 'selatek-notes-session';
+
+        // === ELEMENT ===
+        const textArea = document.getElementById('textArea');
+        const dictateBtn = document.getElementById('dictateBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const statusEl = document.getElementById('status');
+        const wordCountEl = document.getElementById('wordCount');
+        const toast = document.getElementById('toast');
+
+        // === STATE ===
+        let isRecording = false;
+        let recognition = null;
+
+        // === SESSION ID ===
+        function getSessionId() {
+            let sessionId = localStorage.getItem(SESSION_KEY);
+            if (!sessionId) {
+                sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem(SESSION_KEY, sessionId);
+            }
+            return sessionId;
+        }
+
+        // === LOKAL LAGRING ===
+        function saveLocal() {
+            localStorage.setItem(STORAGE_KEY, textArea.value);
+            updateWordCount();
+        }
+
+        function loadLocal() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                textArea.value = saved;
+                updateWordCount();
+            }
+        }
+
+        // === ONLINE STATUS ===
+        function updateStatus() {
+            if (navigator.onLine) {
+                statusEl.textContent = '🟢 Online';
+                statusEl.className = 'status online';
+            } else {
+                statusEl.textContent = '🔴 Offline - sparas lokalt';
+                statusEl.className = 'status offline';
+            }
+        }
+
+        // === WORD COUNT ===
+        function updateWordCount() {
+            const len = textArea.value.length;
+            wordCountEl.textContent = `${len} tecken`;
+        }
+
+        // === TOAST ===
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // === DIKTERING (Web Speech API) ===
+        function setupSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                dictateBtn.textContent = '⌨️ Använd tangentbord';
+                dictateBtn.disabled = true;
+                showToast('Diktering stöds inte i denna webbläsare');
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'sv-SE';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            let finalTranscript = '';
+
+            recognition.onstart = () => {
+                isRecording = true;
+                dictateBtn.textContent = '⏹️ Stoppa';
+                dictateBtn.classList.add('recording');
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                dictateBtn.textContent = '🎤 Diktera';
+                dictateBtn.classList.remove('recording');
+                saveLocal();
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        // Lägg till med mellanslag om det finns text
+                        if (textArea.value && !textArea.value.endsWith(' ')) {
+                            textArea.value += ' ';
+                        }
+                        textArea.value += transcript;
+                        saveLocal();
+                    }
+                }
+                updateWordCount();
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    showToast('Mikrofon nekad - ge tillåtelse i inställningar');
+                } else {
+                    showToast('Fel vid diktering: ' + event.error);
+                }
+                isRecording = false;
+                dictateBtn.textContent = '🎤 Diktera';
+                dictateBtn.classList.remove('recording');
+            };
+        }
+
+        function toggleDictation() {
+            if (!recognition) {
+                showToast('Diktering är inte tillgänglig');
+                return;
+            }
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        // === SYNKA TILL SERVER ===
+        async function syncToServer() {
+            if (!navigator.onLine) {
+                showToast('Ingen anslutning - sparas lokalt');
+                return;
+            }
+
+            const text = textArea.value.trim();
+            if (!text) {
+                showToast('Ingen text att synka');
+                return;
+            }
+
+            syncBtn.disabled = true;
+            syncBtn.textContent = '⏳ Synkar...';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: getSessionId(),
+                        text: text
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('Synkad till server!');
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                showToast('Kunde inte synka - sparas lokalt');
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.textContent = '☁️ Synka till server';
+            }
+        }
+
+        // === SPARA TILL WORD ===
+        async function saveToWord() {
+            const text = textArea.value.trim();
+            if (!text) {
+                showToast('Ingen text att spara');
+                return;
+            }
+
+            // Synka först om online
+            if (navigator.onLine) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = '⏳ Sparar...';
+
+                try {
+                    // Skicka texten först
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            session_id: getSessionId(),
+                            text: text
+                        })
+                    });
+
+                    // Hämta Word-fil
+                    const response = await fetch(WORD_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            session_id: getSessionId()
+                        })
+                    });
+
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `anteckning-${new Date().toISOString().slice(0,10)}.docx`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        showToast('Word-fil nedladdad!');
+
+                        // Ny session efter export
+                        localStorage.removeItem(SESSION_KEY);
+                        getSessionId();
+                    } else {
+                        throw new Error('Could not generate Word file');
+                    }
+                } catch (error) {
+                    console.error('Save error:', error);
+                    showToast('Kunde inte spara - försök igen');
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '💾 Spara till Word';
+                }
+            } else {
+                showToast('Kräver internetanslutning för Word-export');
+            }
+        }
+
+        // === RENSA ===
+        function clearText() {
+            if (confirm('Vill du rensa all text?')) {
+                textArea.value = '';
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(SESSION_KEY);
+                getSessionId();
+                updateWordCount();
+                showToast('Text rensad');
+            }
+        }
+
+        // === EVENT LISTENERS ===
+        dictateBtn.addEventListener('click', toggleDictation);
+        saveBtn.addEventListener('click', saveToWord);
+        syncBtn.addEventListener('click', syncToServer);
+        clearBtn.addEventListener('click', clearText);
+        textArea.addEventListener('input', saveLocal);
+
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+
+        // === INIT ===
+        loadLocal();
+        updateStatus();
+        updateWordCount();
+        setupSpeechRecognition();
+
+        // Service Worker för offline
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker registered'))
+                .catch(err => console.log('SW registration failed:', err));
+        }
+    </script>
+</body>
+</html>

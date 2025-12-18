@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(modal deploy:*)",
+      "Bash(set:*)",
+      "Bash(cmd /c \"chcp 65001 && modal deploy app.py\")",
+      "Bash(powershell -Command \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Set-Location ''C:\\\\Users\\\\MarcusHäger\\\\Selatek_Notes\\\\experiments\\\\voice-to-modal\\\\exp-002''; modal deploy app.py\")",
+      "Bash(modal app list:*)",
+      "Bash(cat:*)",
+      "Bash(modal app stop:*)",
+      "Bash(modal app:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

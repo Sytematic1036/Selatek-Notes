@@ -1,0 +1,140 @@
+# Experiment Log - Voice to Modal
+# Maintained by experiment-logger agent
+
+project: voice-to-modal
+description: "iPhone tal-till-text -> Modal.com endpoint"
+
+experiments:
+  - id: "exp-001"
+    title: "Modal + iPhone Voice Input"
+    date: "2025-12-08"
+    status: "completed"
+
+    hypothesis: "Modal.com kan ta emot text via HTTP POST från iPhone Shortcuts, där texten kommer från iPhones inbyggda tal-till-text"
+
+    goal: "Verifiera end-to-end flöde: iPhone diktering -> Shortcuts -> Modal endpoint -> bekräftelse"
+
+    setup:
+      platform: "Modal.com"
+      client: "iPhone Shortcuts"
+      endpoint: "https://mackanh1972--voice-receiver-receive-voice.modal.run"
+      dependencies:
+        - modal
+        - fastapi
+
+    method:
+      - step: 1
+        action: "Skapade minimal Modal web endpoint med FastAPI"
+        result: "Endpoint som tar emot POST med JSON body"
+      - step: 2
+        action: "Deployade till Modal.com med PYTHONUTF8=1 för Windows-kompatibilitet"
+        result: "Publik URL tillgänglig"
+      - step: 3
+        action: "Testade med curl"
+        result: "200 OK med echo av text"
+      - step: 4
+        action: "Skapade iPhone Shortcut med Diktera text -> Hämta innehåll från URL -> Visa notis"
+        result: "Shortcut fungerar efter felsökning"
+      - step: 5
+        action: "End-to-end test från iPhone"
+        result: "Diktering -> Shortcut -> Modal -> notis med JSON-svar"
+
+    success_criteria:
+      - criterion: "Modal endpoint returnerar 200 på POST"
+        met: true
+      - criterion: "iPhone Shortcut kan skicka text till endpoint"
+        met: true
+      - criterion: "Bekräftelse visas på iPhone efter lyckad POST"
+        met: true
+
+    results:
+      outcome: "success"
+      observations:
+        - "Windows kräver PYTHONUTF8=1 för Modal deploy pga Unicode-tecken i output"
+        - "iPhone Shortcuts 'Hämta innehåll från URL' är rätt åtgärd (inte 'URL')"
+        - "'Visa' + 'Innehåll i URL' är bäst - resultatet stannar på skärmen tills man trycker Klar"
+        - "Viktigt att Nyckel-fältet är ifyllt (text) i JSON body"
+      artifacts:
+        - "exp-001/app.py"
+        - "exp-001/README.md"
+
+    learnings:
+      - "Modal.com fungerar bra för serverless endpoints"
+      - "iPhone Shortcuts kan göra HTTP POST med JSON body"
+      - "Cold start på Modal är acceptabelt för manuell användning"
+
+    conclusion: "Hypothesis bekräftad. End-to-end flöde från iPhone diktering till Modal endpoint fungerar."
+
+    next_steps:
+      - "exp-002: Session-baserad textackumulering med Word-export"
+
+  - id: "exp-002"
+    title: "Session-baserad textackumulering"
+    date: "2025-12-08"
+    status: "partial"
+
+    hypothesis: "Modal Volume + session ID kan behålla state mellan dikteringar, visa endast text (ej JSON), och exportera till Word"
+
+    goal: "Diktera flera gånger -> text ackumuleras -> spara till Word"
+
+    builds_on: "exp-001"
+
+    setup:
+      platform: "Modal.com"
+      client: "iPhone Shortcuts"
+      storage: "Modal Volume (voice-sessions)"
+      dependencies:
+        - modal
+        - fastapi
+        - python-docx
+
+    method:
+      - step: 1
+        action: "Skapa Modal app med Volume för session-lagring"
+        result: "Fungerar"
+      - step: 2
+        action: "Implementera /accumulate endpoint (returnerar plain text)"
+        result: "Fungerar - testat med curl"
+      - step: 3
+        action: "Implementera /save_to_word endpoint (genererar .docx)"
+        result: "Fungerar - testat med curl"
+      - step: 4
+        action: "Skapa iPhone Shortcut med UUID, loop och Spara-knapp"
+        result: "MISSLYCKADES - för komplicerat för användare"
+      - step: 5
+        action: "End-to-end test"
+        result: "Ej genomfört pga steg 4"
+
+    success_criteria:
+      - criterion: "Flera dikteringar ackumuleras korrekt"
+        met: true
+        note: "Verifierat med curl"
+      - criterion: "Endast text visas (ingen JSON)"
+        met: true
+        note: "PlainTextResponse fungerar"
+      - criterion: "Word-export fungerar"
+        met: true
+        note: "Verifierat med curl"
+      - criterion: "Session rensas efter export"
+        met: false
+        note: "Volume commit fungerar inte som förväntat"
+
+    results:
+      outcome: "partial"
+      observations:
+        - "Backend (Modal) fungerar perfekt"
+        - "iPhone Shortcuts är för komplicerat som klient"
+        - "Konverteringsfel mellan formaterad text och JSON"
+        - "Användare måste konfigurera för många inställningar"
+        - "Inte praktiskt för distribution till flera användare"
+
+    learnings:
+      - "iPhone Shortcuts är bra för enkla flöden men svårt för JSON POST"
+      - "PlainTextResponse i FastAPI tar bort citattecken"
+      - "Modal Volume fungerar för session-state"
+      - "Behöver enklare klient - webbapp eller PWA"
+
+    conclusion: "Backend fungerar men iPhone Shortcuts är fel klient. Behöver PWA med offline-stöd istället."
+
+    next_steps:
+      - "exp-003: PWA med offline-stöd och lokal lagring"
