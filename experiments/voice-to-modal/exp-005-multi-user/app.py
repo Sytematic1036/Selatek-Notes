@@ -137,7 +137,7 @@ def get_user_html(username, has_pin):
         <h1>Selatek Notes</h1>
         <div class="user-badge">Inloggad som: {username}</div>
         <div class="status" id="status">Kontrollerar...</div>
-        <textarea class="text-area" id="textArea" placeholder="Tryck på mikrofonen för att diktera..."></textarea>
+        <textarea class="text-area" id="textArea" placeholder="Tryck på mikrofonen för att diktera...">Objekt: </textarea>
         <div class="image-preview" id="imagePreview"></div>
         <div class="buttons">
             <div class="btn-row">
@@ -193,7 +193,11 @@ def get_user_html(username, has_pin):
 
         function loadLocal() {{
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) textArea.value = saved;
+            if (saved) {{
+                textArea.value = saved;
+            }} else {{
+                textArea.value = 'Objekt: ';
+            }}
             updateWordCount();
         }}
 
@@ -409,7 +413,7 @@ def get_user_html(username, has_pin):
 
         async function clearText() {{
             if (confirm('Rensa allt?')) {{
-                textArea.value = '';
+                textArea.value = 'Objekt: ';
                 imageCount = 0;
                 localStorage.removeItem(STORAGE_KEY);
                 renderImageCounter();
@@ -1027,7 +1031,7 @@ def save_to_word(data: dict):
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.LEFT
     remove_indent(title)
-    title_run = title.add_run(f'{username} - {datetime.now().strftime("%Y-%m-%d %H:%M")}')
+    title_run = title.add_run(f'{datetime.now().strftime("%Y-%m-%d %H:%M")}')
     title_run.bold = True
     title_run.font.size = Pt(16)
 
